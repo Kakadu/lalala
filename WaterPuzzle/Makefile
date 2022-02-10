@@ -1,57 +1,16 @@
-# Put the name of the executable here
 TOPFILE = WaterPuzzle
-
-# Put the source files here 
 SOURCES = WaterPuzzle.ml2mk.ml WaterPuzzleD.ml
 
-OCAMLC = ocamlfind c
-OCAMLOPT = ocamlfind opt
-OCAMLDEP = ocamlfind dep
-MLSOURCES = $(filter-out %.ml2mk.ml, $(SOURCES))
-MKSOURCES = $(filter %.ml2mk.ml, $(SOURCES))
-# -dsource --- dump a text *after* camlp5 extension
-CAMLP5 = -syntax camlp5o -package GT-p5,OCanren.syntax,GT.syntax.all 
-PXFLAGS = $(CAMLP5)
-BFLAGS = -rectypes -g -package GT,OCanren 
-OFLAGS = $(BFLAGS) -inline 10
-NOCANREN = noCanren
-NOCFLAGS =
+REWRITER_EXES = rewriter.native rewriter_ppx.native
+PXFLAGS = -pp './rewriter_ppx.native -pp ./rewriter.exe'
+include ../Makefile.common.mk
+NOCFLAGS = -w -8
 
-all: .depend $(TOPFILE) $(TOPFILE).byte
 
-.depend: $(SOURCES)
-	$(OCAMLDEP) $(PXFLAGS) *.ml > .depend
+rewriter.native: rewriter_ppx.native
+rewriter_ppx.native:
+	ocamlfind opt -predicates ppx_driver -package OCanren-ppx.ppx_distrib,GT.ppx,GT.ppx_all,ppxlib.runner \
+		-linkpkg -linkall -o $@
 
-$(TOPFILE): $(MKSOURCES:.ml2mk.ml=.cmx) $(MLSOURCES:.ml=.cmx)
-	$(OCAMLOPT) -o $(TOPFILE) $(OFLAGS) $(LIBS:.cma=.cmxa) -linkpkg $^
-
-$(TOPFILE).byte:  $(MKSOURCES:.ml2mk.ml=.cmo) $(MLSOURCES:.ml=.cmo)
-	$(OCAMLC) -o $(TOPFILE).byte $(BFLAGS) $(LIBS) -linkpkg $^
-
-clean:
-	rm -Rf *.cmi *.cmo *.cmx *.annot *.o *.opt *.byte *~ .depend $(TOPFILE)
-
--include .depend
-
-# generic rules
-
-###############
-%.ml: %.ml2mk.ml
-	$(NOCANREN) $(NOCFLAGS) -o $@ $<
-
-%.cmi: %.mli
-	$(OCAMLC) -c $(BFLAGS) $(PXFLAGS) $<
-
-# Note: cmi <- mli should go first
-%.cmi: %.ml 
-	$(OCAMLC) -c $(BFLAGS) $(PXFLAGS) $<
-
-%.cmo: %.ml
-	$(OCAMLC) -c $(BFLAGS) $(PXFLAGS) $<
-
-%.o: %.ml
-	$(OCAMLOPT) -c $(OFLAGS) $(STATIC) $(PXFLAGS) $<
-
-%.cmx: %.ml
-	$(OCAMLOPT) -c $(OFLAGS) $(STATIC) $(PXFLAGS) $<
-
+clean::
+	@$(RM) rewriter_ppx.native

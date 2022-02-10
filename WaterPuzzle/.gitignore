@@ -2,3 +2,7 @@ rewriter.exe
 *.byte
 *.native
 .depend
+*.cm[oixa]
+*.cmxa
+*.o
+.*.d

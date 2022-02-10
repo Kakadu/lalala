@@ -1,4 +1,5 @@
-#.SUFFIX: .byte .native
+.SUFFIX: .byte .native
+.PHONY: clean
 
 # Put the name of the executable here
 TOPFILE ?=
@@ -12,53 +13,58 @@ OCAMLDEP = ocamlfind dep
 MLSOURCES = $(filter-out %.ml2mk.ml, $(SOURCES))
 MKSOURCES = $(filter %.ml2mk.ml, $(SOURCES))
 # -dsource --- dump a text *after* camlp5 extension
-PXFLAGS = -syntax camlp5o -package GT-p5,OCanren.syntax,GT.syntax.all
+PXFLAGS ?= -syntax camlp5o -package GT-p5,OCanren.syntax,GT.syntax.all
+REWRITER_EXES ?=
 # byte flags
 BFLAGS += -rectypes -g -package GT,OCanren
 # opt flags
-OFLAGS += $(BFLAGS) -inline 10
+OFLAGS += -inline 10
 NOCANREN = noCanren
 NOCFLAGS +=
 
-all: .depend $(TOPFILE).native $(TOPFILE).byte
+.DEFAULT: all
 
-rewriter.exe:
-	mkcamlp5.opt -package camlp5.pr_dump,GT-p5,GT.syntax,OCanren.syntax,GT.syntax.all -o $@
+all: $(TOPFILE).native $(TOPFILE).byte
 
-.depend: rewriter.exe
-
-.depend: $(SOURCES)
-	$(OCAMLDEP) $(PXFLAGS) *.ml > .depend
+rewriter.native:
+	mkcamlp5.opt -package camlp5.pa_o,camlp5.pr_dump,GT-p5,GT.syntax,OCanren.syntax,GT.syntax.all -o $@ #-verbose
 
 $(TOPFILE).native: $(MKSOURCES:.ml2mk.ml=.cmx) $(MLSOURCES:.ml=.cmx)
-	$(OCAMLOPT) -o $@ $(OFLAGS) $(LIBS:.cma=.cmxa) -linkpkg $^
+	$(OCAMLOPT) $(BFLAGS) $(OFLAGS) $(LIBS:.cma=.cmxa) -linkpkg $^ -o $@
 
 $(TOPFILE).byte:  $(MKSOURCES:.ml2mk.ml=.cmo) $(MLSOURCES:.ml=.cmo)
-	$(OCAMLC) -o $@ $(BFLAGS) $(LIBS) -linkpkg $^
+	$(OCAMLC)   $(BFLAGS) $(LIBS) -linkpkg $^ -o $@
 
-clean:
-	$(RM) *.cm[iox] *.annot *.o *.opt *.byte *~ .depend $(TOPFILE).native $(TOPFILE).byte rewriter.exe
+clean::
+	$(RM) *.cm[iox] *.annot *.o *.opt *.byte *~ *.d $(TOPFILE).native $(TOPFILE).byte $(REWRITER_EXES) \
+		$(MKSOURCES:%.ml2mk.ml=%.ml)
 
--include .depend
+# A trick with dependecies from here: http://make.mad-scientist.net/papers/advanced-auto-dependency-generation/
+DEPDIR = .
+DEPFILES := $(MKSOURCES:%.ml2mk.ml=$(DEPDIR)/.%.ml.d) $(MLSOURCES:%.ml=$(DEPDIR)/.%.ml.d)
+include $(wildcard $(DEPFILES))
+#include $(DEPFILES)
+#$(info $(DEPFILES))
+
+.%.ml.d: %.ml $(REWRITER_EXES)
+	$(OCAMLDEP) $(PXFLAGS) $< > $@
 
 # generic rules
-
-###############
 %.ml: %.ml2mk.ml
 	$(NOCANREN) $(NOCFLAGS) -o $@ $<
 
-%.cmi: %.mli
+%.cmi: %.mli | .%.ml.d
 	$(OCAMLC)   -c $(BFLAGS) $(PXFLAGS) $<
 
 # Note: cmi <- mli should go first
-%.cmi: %.ml
+%.cmi: %.ml | .%.ml.d
 	$(OCAMLC)   -c $(BFLAGS) $(PXFLAGS) $<
 
-%.cmo: %.ml
+%.cmo: %.ml | .%.ml.d
 	$(OCAMLC)   -c $(BFLAGS) $(PXFLAGS) $<
 
-%.o: %.ml
-	$(OCAMLOPT) -c $(OFLAGS) $(STATIC) $(BFLAGS) $(PXFLAGS) $<
+%.o: %.ml | .%.ml.d
+	$(OCAMLOPT) -c $(BFLAGS) $(STATIC) $(PXFLAGS) $(OFLAGS) $<
 
-%.cmx: %.ml
-	$(OCAMLOPT) -c $(OFLAGS) $(STATIC) $(BFLAGS) $(PXFLAGS) $<
+%.cmx: %.ml | .%.ml.d
+	$(OCAMLOPT) -c $(BFLAGS) $(STATIC) $(PXFLAGS) $(OFLAGS) $<
