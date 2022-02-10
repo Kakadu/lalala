@@ -1,19 +1,19 @@
 (* Natural numbers in Peano encoding *)
 type nat = O | S of nat
 
-(* Names for pins *)                  
+(* Names for pins *)
 type pin = A | B | C
 
 (*
 Make these type definitions compile
 
 type move = (pin, pin)
-type set  = (nat list, nat list, nat list) 
+type set  = (nat list, nat list, nat list)
 *)
-                 
+
 (*
-    Moves are represented as pars of pin names; 
-    the set is represented as triples of lists of 
+    Moves are represented as pars of pin names;
+    the set is represented as triples of lists of
     natural numbers:
 
 
@@ -23,15 +23,15 @@ type set  = (nat list, nat list, nat list)
    -------------------
       A      B     C   <- names for pins
 
-    Representation: ([1, 2, 3], [], [])   
+    Representation: ([1, 2, 3], [], [])
  *)
-                 
+
 (* nat -> nat -> bool
 
    Tests the ordering relation on natural numers:
-   
+
    less x y = true <=> x < y
-*)                 
+*)
 let rec less x y =
   match y with
   | S y' -> match x with
@@ -40,10 +40,10 @@ let rec less x y =
 
 (* move -> pin
 
-   Gets the name of the complementary pin for a given move 
+   Gets the name of the complementary pin for a given move
    (e.g. (A, B) -> C, etc.)
-*)                   
-let complement = function 
+*)
+let complement = function
 | (A, B) -> C
 | (B, A) -> C
 | (A, C) -> B
@@ -52,9 +52,9 @@ let complement = function
 | (C, B) -> A
 
 (* set -> pin -> nat list
-   
+
    Selects the contents of given pin by its name
- *)          
+ *)
 let select (x, y, z) = function
 | A -> x
 | B -> y
@@ -64,16 +64,16 @@ let select (x, y, z) = function
 
    Makes a pseudo-set for given set and move:
 
-   (from, to) -> set -> (set.from, set.to, set.complement)   
-*)     
-let selectMove (x, y) as move s =
+   (from, to) -> set -> (set.from, set.to, set.complement)
+*)
+let selectMove ((x, y) as move) s =
   (select s x, select s y, select s (complement move))
 
 (* set -> move -> set
 
    Permutes a pseudo set for a given move to get a "normal" set
- *)           
-let permutate (x, y, z) as state = function
+ *)
+let permutate ((x, y, z) as state) = function
 | (A, B) -> state
 | (B, A) -> (y, x, z)
 | (A, C) -> (x, z, y)
@@ -84,13 +84,13 @@ let permutate (x, y, z) as state = function
 (* move list -> set -> set
 
   Executes a given sequence of moves for given initial set and
-  produces a final set (if possible) 
+  produces a final set (if possible)
 *)
 let[@tabled] rec eval p s =
   match p with
   | []         -> s
   | (x, y) as move :: p' ->
-     eval p' 
+     eval p'
        (if x = y
          then s
          else
@@ -101,4 +101,3 @@ let[@tabled] rec eval p s =
                          match less topA topB with
                          | true -> (restA, topA :: onB, onC)
                      ) move)
-     
